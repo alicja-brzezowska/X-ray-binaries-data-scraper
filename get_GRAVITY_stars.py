@@ -49,32 +49,26 @@ def find_brightest_gaia_rp(ra, dec, radius_arcsec=30.0):
 
     best_i = None
     best_rp = float('inf')
-    best_adist = None
 
     for i in range(len(r)):
         rp = r['phot_rp_mean_mag'][i]
         if rp is None or (isinstance(rp, float) and np.isnan(rp)):
             continue
-        adist = get_adist(ra, dec, r['ra'][i], r['dec'][i])
         if rp < best_rp:
             best_rp = rp
             best_i = i
-            best_adist = adist
 
     if best_i is None:
         return None
-
-    ra_s  = degrees_to_sexagesimal_ra(r['ra'][best_i])
-    dec_s = degrees_to_sexagesimal_dec(r['dec'][best_i])
 
     return {
         'source_id': r['source_id'][best_i],
         'ra': float(r['ra'][best_i]),
         'dec': float(r['dec'][best_i]),
-        'ra_s': ra_s,
-        'dec_s': dec_s,
+        'ra_s': degrees_to_sexagesimal_ra(r['ra'][best_i]),
+        'dec_s': degrees_to_sexagesimal_dec(r['dec'][best_i]),
         'rp': float(r['phot_rp_mean_mag'][best_i]),
-        'sep_arcsec': float(best_adist)
+        'sep_arcsec': float(get_adist(ra, dec, r['ra'][best_i], r['dec'][best_i]))
     }
 
 results = []
@@ -85,24 +79,30 @@ with open('black_holes.csv', 'r') as f:
 
 for bh in black_holes:
     name = bh[0]
-    ra_str = bh[1]
-    dec_str = bh[2]
+    ra_str = bh[1]  
+    dec_str = bh[2]  
 
+    # Convert RA and Dec from sexagesimal to decimal degrees to pass into Gaia query
     bh_coord = SkyCoord(ra_str, dec_str, unit=(u.hourangle, u.deg), frame='icrs')
     ra = bh_coord.ra.deg
     dec = bh_coord.dec.deg
 
     rec = find_brightest_gaia_rp(ra, dec, radius_arcsec=30.0)
     if rec is None:
-        results.append([name, ra, dec, 'NONE', '', '', '', ''])
+        results.append([
+            name,
+            ra_str,  
+            dec_str,  
+            'NONE', '', '', '', ''
+        ])
     else:
         results.append([
             name,
-            ra,
-            dec,
+            ra_str,  
+            dec_str, 
             rec['source_id'],
-            rec['ra'],
-            rec['dec'],
+            rec['ra_s'],  
+            rec['dec_s'], 
             rec['rp'],
             rec['sep_arcsec']
         ])

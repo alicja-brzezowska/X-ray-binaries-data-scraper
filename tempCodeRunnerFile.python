@@ -1,0 +1,23 @@
+from bs4 import BeautifulSoup
+import requests
+
+url = 'https://www.astro.puc.cl/BlackCAT/transients.php'
+page = requests.get(url)
+soup = BeautifulSoup(page.text, 'html.parser')
+
+#extracting the data of confirmed black holes
+#print(soup.find_all('tr', style="font-weight:bold"))
+
+black_holes = []
+for row in soup.find_all('tr', style="font-weight:bold"):
+    cells = row.find_all('td')
+    if len(cells) > 1:
+        black_holes.append({
+            'name': cells[1].text.strip(),
+            'ra': cells[2].text.strip(),
+            'dec': cells[3].text.strip(),
+            'redshift': cells[4].text.strip(),
+            'mass': cells[5].text.strip()
+        })
+
+print(black_holes)

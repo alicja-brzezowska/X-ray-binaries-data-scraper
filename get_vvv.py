@@ -17,8 +17,11 @@ with open('black_holes.csv', 'r') as f:
 
 
 for bh in black_holes:
-    name, ra_str, dec_str = bh
+    name = bh[0]
+    ra_str = bh[1]
+    dec_str = bh[2]
 
+    # Convert black hole coordinates to decimal degrees
     bh_coord = SkyCoord(ra_str, dec_str, unit=(
         u.hourangle, u.deg), frame='icrs')
     ra = bh_coord.ra.deg
@@ -96,6 +99,7 @@ for bh in black_holes:
         ks1err = ks1_errs[chosen_idx]
         ks2 = ks2_vals[chosen_idx]
         ks2err = ks2_errs[chosen_idx]
+        best_mag = best_mag
 
     results.append([
         name, ra, dec, vvv_ra, vvv_dec, sep_arcsec,
