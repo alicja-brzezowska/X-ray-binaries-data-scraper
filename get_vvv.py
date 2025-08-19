@@ -2,6 +2,8 @@ import requests
 import json
 import numpy as np
 import csv
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 from pprint import pprint
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -9,7 +11,6 @@ from get_GRAVITY_stars import degrees_to_sexagesimal_dec, degrees_to_sexagesimal
 
 
 def read_csv(file_name):
-    """Reads a CSV file and returns a list of black hole data."""
     with open(file_name, 'r') as f:
         csv_reader = csv.reader(f)
         header = next(csv_reader)
@@ -18,8 +19,8 @@ def read_csv(file_name):
 
 
 def query_vvv_catalog(ra, dec, radius_arcsec = 30.0):
-    radius_deg = 30/ 3600
-    """Queries the VVV catalog for sources within a given radius."""
+    """Query the VVV catalog for K band data around a given RA and Dec."""
+    radius_deg = radius_arcsec/ 3600
     query = (
         "SELECT RA2000, DEC2000, KS_1APERMAG3, KS_1APERMAG3ERR, "
         "KS_2APERMAG3, KS_2APERMAG3ERR "
@@ -32,9 +33,7 @@ def query_vvv_catalog(ra, dec, radius_arcsec = 30.0):
     result = json.loads(response.content)
     return result.get('data', [])
 
-
 def find_brightest_vvv(data, bh_coord):
-    """Finds the brightest source in the VVV data."""
     if not data:
         return None
 
@@ -56,9 +55,9 @@ def find_brightest_vvv(data, bh_coord):
     chosen_idx = None
     best_mag = np.nan
 
-    # Determine the index of the brightest star from both sets of measurements
-    # if both indices show the same source, take the average of their magnitudes
-    # if they are different, choose the one with the lower magnitude (brighter)
+    """Determine the index of the brightest star from both sets of measurements
+    if both indices show the same source, take the average of their magnitudes
+    if they are different, choose the one with the lower magnitude (brighter)"""
 
     if idx1 is not None and idx2 is not None:
         if idx1 == idx2:
@@ -91,9 +90,33 @@ def find_brightest_vvv(data, bh_coord):
         }
     return None
 
+def rect_to_radec(lmin, lmax, bmin, bmax, n=50):
+    """Convert rectangular coordinates (l,b) to RA, Dec in degrees."""
+    l_vals = [lmin] * n + list(np.linspace(lmin, lmax, n)) + [lmax] * n + list(np.linspace(lmax, lmin, n))
+    b_vals = list(np.linspace(bmin, bmax, n)) + [bmax] * n + list(np.linspace(bmax, bmin, n)) + [bmin] * n
+    gal = SkyCoord(l=l_vals*u.deg, b=b_vals*u.deg, frame="galactic")
+    return gal.icrs.ra.deg, gal.icrs.dec.deg
+
+
+def visualize_results(bh_ra, bh_dec):
+    """Plot the VVV survey range and black hole locations to double-check the results."""
+    ra_bulge, dec_bulge = rect_to_radec(-10, +10, -10, +5)
+    ra_disk, dec_disk = rect_to_radec(-65.0, -10.0, -2, +2)
+
+    plt.figure(figsize=(10, 7))
+    plt.scatter(bh_ra, bh_dec, color="red", label="Black Holes", zorder=3)
+    plt.plot(ra_bulge, dec_bulge, "b-", label="VVV Bulge", zorder=2)
+    plt.plot(ra_disk, dec_disk, "g-", label="VVV Disk", zorder=2)
+
+    plt.gca().invert_xaxis()  
+    plt.xlabel("RA (deg)")
+    plt.ylabel("Dec (deg)")
+    plt.title("VVV Survey Range and X-ray Binary Locations")
+    plt.legend()
+    return plt.show()
+
 
 def save_results_to_csv(results, output_file):
-    """Saves the results to a CSV file."""
     with open(output_file, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow([
@@ -112,7 +135,9 @@ def main():
     radius_arcsec = 30.0
 
     black_holes = read_csv(input_file)
-    results = []
+    
+    results = []  
+    bh_ra_list, bh_dec_list = [], []
 
     for bh in black_holes:
         name = bh[0]
@@ -123,6 +148,9 @@ def main():
         ra = bh_coord.ra.deg
         dec = bh_coord.dec.deg
 
+        bh_ra_list.append(ra)
+        bh_dec_list.append(dec)
+
         data = query_vvv_catalog(ra, dec, radius_arcsec)
         if not data:
             print(f"No VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
@@ -130,7 +158,6 @@ def main():
 
         brightest = find_brightest_vvv(data, bh_coord)
         if brightest:
-           # vvv_coord = SkyCoord(ra * u.deg , dec * u.deg, frame='icrs')
             results.append([
                 name, ra_str, dec_str,
                 degrees_to_sexagesimal_ra(brightest["vvv_ra"]), degrees_to_sexagesimal_dec(brightest["vvv_dec"]), brightest["sep_arcsec"],
@@ -138,7 +165,8 @@ def main():
                 brightest["best_mag"]
             ])
     save_results_to_csv(results, output_file)
-
+    visualize_results(bh_ra_list, bh_dec_list)
+    
 
 if __name__ == "__main__":
     main()

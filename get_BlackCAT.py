@@ -41,6 +41,10 @@ for row in data:
                 ks_quiescent = text
                 break
 
+# Debugging 
+    #bh_coord = SkyCoord(ra, dec, unit=(u.hourangle, u.deg), frame='icrs')
+    #ra = bh_coord.ra.deg
+    #dec = bh_coord.dec.deg
     black_holes.append({
         'name': name,
         'ra': ra,
