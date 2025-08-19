@@ -3,7 +3,6 @@ import json
 import numpy as np
 import csv
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
 from pprint import pprint
 from astropy.coordinates import SkyCoord
 import astropy.units as u
@@ -32,6 +31,21 @@ def query_vvv_catalog(ra, dec, radius_arcsec = 30.0):
     response = requests.get(url)
     result = json.loads(response.content)
     return result.get('data', [])
+
+def query_vvv_new_catalog(ra, dec, radius_arcsec = 30.0):
+    """Query the new VVV catalog for K band data around a given RA and Dec."""
+    radius_deg = radius_arcsec/ 3600
+    query = (
+        "SELECT ra, de, phot_ks_mean_mag, phot_ks_std_mag "
+        "FROM VVVX_VIRAC_V2_SOURCES "
+        f"WHERE CONTAINS(POINT('ICRS', ra, de), "
+        f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.6f}))=1"
+    )
+    url = f"https://archive.eso.org/tap_cat/sync?REQUEST=doQuery&LANG=ADQL&FORMAT=json&QUERY={query}"
+    response = requests.get(url)
+    result = json.loads(response.content)
+    return result.get('data', [])
+
 
 def find_brightest_vvv(data, bh_coord):
     if not data:
@@ -90,6 +104,34 @@ def find_brightest_vvv(data, bh_coord):
         }
     return None
 
+def find_brightest_vvv_new(data, bh_coord):
+    if not data:
+        return None
+
+    ra_vals = np.array([row[0] for row in data], dtype=float)
+    dec_vals = np.array([row[1] for row in data], dtype=float)
+    ks_vals = np.array([row[2] for row in data], dtype=float)
+    ks_errs = np.array([row[3] for row in data], dtype=float)
+
+    # Calculate separations using SkyCoord
+    src_coords = SkyCoord(ra_vals * u.deg, dec_vals * u.deg, frame='icrs')
+    seps = src_coords.separation(bh_coord).arcsec
+
+    # In the new catalog, only one K band magnitude 
+    idx = int(np.nanargmin(ks_vals)) if np.any(~np.isnan(ks_vals)) else None
+
+    if idx is not None:
+        return {
+            "vvv_ra": ra_vals[idx],
+            "vvv_dec": dec_vals[idx],
+            "sep_arcsec": seps[idx],
+            "ks": ks_vals[idx],
+            "kserr": ks_errs[idx],
+            "best_mag": ks_vals[idx]
+        }
+    return None
+
+
 def rect_to_radec(lmin, lmax, bmin, bmax, n=50):
     """Convert rectangular coordinates (l,b) to RA, Dec in degrees."""
     l_vals = [lmin] * n + list(np.linspace(lmin, lmax, n)) + [lmax] * n + list(np.linspace(lmax, lmin, n))
@@ -132,11 +174,13 @@ def save_results_to_csv(results, output_file):
 def main():
     input_file = 'black_holes.csv'
     output_file = 'black_holes_with_vvv.csv'
+    output_file_new = 'black_holes_with_vvv_new.csv'
     radius_arcsec = 30.0
 
     black_holes = read_csv(input_file)
     
     results = []  
+    results_new = []
     bh_ra_list, bh_dec_list = [], []
 
     for bh in black_holes:
@@ -164,8 +208,27 @@ def main():
                 brightest["ks1"], brightest["ks1err"], brightest["ks2"], brightest["ks2err"],
                 brightest["best_mag"]
             ])
+
+        data_new = query_vvv_new_catalog(ra, dec, radius_arcsec)
+        if not data_new:
+            print(f"No new VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
+            continue
+
+        brightest_new = find_brightest_vvv_new(data_new, bh_coord)
+        if brightest_new:
+            results_new.append([
+                name, ra_str, dec_str,
+                degrees_to_sexagesimal_ra(brightest_new["vvv_ra"]), degrees_to_sexagesimal_dec(brightest_new["vvv_dec"]), brightest_new["sep_arcsec"],
+                brightest_new["ks"], brightest_new["kserr"], "", "",
+                brightest_new["best_mag"]
+            ])
+
+
     save_results_to_csv(results, output_file)
+    save_results_to_csv(results_new, output_file_new)
+
     visualize_results(bh_ra_list, bh_dec_list)
+
     
 
 if __name__ == "__main__":
