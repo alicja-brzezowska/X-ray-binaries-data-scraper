@@ -107,7 +107,7 @@ for bh in black_holes:
             rec['sep_arcsec']
         ])
 
-with open('black_holes_with_gaia.csv', 'w', newline='') as f:
+with open('../results/black_holes_with_gaia.csv', 'w', newline='') as f:
     writer = csv.writer(f)
     writer.writerow(['bh_name', 'ra_bh', 'dec_bh', 'star_id', 'ra_star', 'dec_star', 'rp_mag_star', 'sep_arcsec'])
     writer.writerows(results)

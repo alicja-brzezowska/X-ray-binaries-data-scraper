@@ -50,7 +50,7 @@ for row in data:
 
 pprint(black_holes)
 
-with open('black_holes.csv', 'w', newline='') as f:
+with open('../results/black_holes.csv', 'w', newline='') as f:
     writer = csv.DictWriter(f, fieldnames=['name', 'ra', 'dec', 'brightness_quiescent'])
     writer.writeheader()
     writer.writerows(black_holes)

@@ -113,7 +113,7 @@ def write_results_csv(results, out_path):
 def main():
     black_holes = read_csv('black_holes.csv')
     results = process_black_holes(black_holes, radius_arcsec=30.0)
-    write_results_csv(results, 'black_holes_with_2mass.csv')
+    write_results_csv(results, '../results/black_holes_with_2mass.csv')
     print("Saved results to black_holes_with_2mass.csv")
 
 if __name__ == "__main__":

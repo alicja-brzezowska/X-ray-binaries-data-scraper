@@ -173,8 +173,8 @@ def save_results_to_csv(results, output_file):
 
 def main():
     input_file = 'black_holes.csv'
-    output_file = 'black_holes_with_vvv.csv'
-    output_file_new = 'black_holes_with_vvv_new.csv'
+    output_file = '../results/black_holes_with_vvv.csv'
+    output_file_new = '../results/black_holes_with_vvv_new.csv'
     radius_arcsec = 30.0
 
     black_holes = read_csv(input_file)
