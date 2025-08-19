@@ -1,2 +1,4 @@
 .DS_Store
-tempCodeRunnerFile.py tempCodeRunnerFile.python
+tempCodeRunnerFile.py 
+tempCodeRunnerFile.python
+**__pycache__**
