@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from pprint import pprint
 from astropy.coordinates import SkyCoord
 import astropy.units as u
-from get_GRAVITY_stars import degrees_to_sexagesimal_dec, degrees_to_sexagesimal_ra
 
 
 def read_csv(file_name):
@@ -126,8 +125,7 @@ def find_brightest_vvv_new(data, bh_coord):
             "vvv_dec": dec_vals[idx],
             "sep_arcsec": seps[idx],
             "ks": ks_vals[idx],
-            "kserr": ks_errs[idx],
-            "best_mag": ks_vals[idx]
+            "kserr": ks_errs[idx]
         }
     return None
 
@@ -158,23 +156,18 @@ def visualize_results(bh_ra, bh_dec):
     return plt.show()
 
 
-def save_results_to_csv(results, output_file):
+def save_results_to_csv(results, output_file, header=None):
     with open(output_file, 'w', newline='') as f:
         writer = csv.writer(f)
-        writer.writerow([
-            'name', 'bh_ra', 'bh_dec',
-            'vvv_ra', 'vvv_dec', 'sep_arcsec',
-            'ks1_mag', 'ks1_mag_err', 'ks2_mag', 'ks2_mag_err',
-            'best_mag_for_ranking'
-        ])
+        writer.writerow(header)
         writer.writerows(results)
     print(f"Saved results to {output_file}")
 
 
 def main():
-    input_file = 'black_holes.csv'
-    output_file = '../results/black_holes_with_vvv.csv'
-    output_file_new = '../results/black_holes_with_vvv_new.csv'
+    input_file = 'results/black_holes.csv'
+    output_file = 'results/black_holes_with_vvv.csv'
+    output_file_new = 'results/black_holes_with_vvv_new.csv'
     radius_arcsec = 30.0
 
     black_holes = read_csv(input_file)
@@ -195,37 +188,62 @@ def main():
         bh_ra_list.append(ra)
         bh_dec_list.append(dec)
 
+        # Perform the search for the old and new VVV catalogs
         data = query_vvv_catalog(ra, dec, radius_arcsec)
         if not data:
             print(f"No VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
             continue
 
+ 
         brightest = find_brightest_vvv(data, bh_coord)
+
         if brightest:
+            k = SkyCoord(brightest["vvv_ra"] * u.deg, brightest["vvv_dec"] * u.deg, frame='icrs')
+            vvv_ra_hms = k.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
+            vvv_dec_dms = k.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
             results.append([
                 name, ra_str, dec_str,
-                degrees_to_sexagesimal_ra(brightest["vvv_ra"]), degrees_to_sexagesimal_dec(brightest["vvv_dec"]), brightest["sep_arcsec"],
+                vvv_ra_hms, vvv_dec_dms,
+                brightest["sep_arcsec"],
                 brightest["ks1"], brightest["ks1err"], brightest["ks2"], brightest["ks2err"],
                 brightest["best_mag"]
             ])
 
+                
         data_new = query_vvv_new_catalog(ra, dec, radius_arcsec)
+
         if not data_new:
             print(f"No new VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
             continue
-
+        
         brightest_new = find_brightest_vvv_new(data_new, bh_coord)
+
         if brightest_new:
+            k2 = SkyCoord(brightest_new["vvv_ra"] * u.deg, brightest_new["vvv_dec"] * u.deg, frame='icrs')
+            vvv2_ra_hms = k2.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
+            vvv2_dec_dms = k2.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
             results_new.append([
                 name, ra_str, dec_str,
-                degrees_to_sexagesimal_ra(brightest_new["vvv_ra"]), degrees_to_sexagesimal_dec(brightest_new["vvv_dec"]), brightest_new["sep_arcsec"],
-                brightest_new["ks"], brightest_new["kserr"], "", "",
-                brightest_new["best_mag"]
+                vvv2_ra_hms, vvv2_dec_dms,
+                brightest_new["sep_arcsec"],
+                brightest_new["ks"], brightest_new["kserr"]
             ])
+    
+    header_old = [
+        'name', 'bh_ra', 'bh_dec',
+        'vvv_ra', 'vvv_dec', 'sep_arcsec',
+        'ks_1_mag', 'ks_1_mag_err', 'ks_2_mag', 'ks_2_mag_err',
+        'best_mag_for_ranking'
+    ]
+    header_new = [
+        'name', 'bh_ra', 'bh_dec',
+        'vvv_ra', 'vvv_dec', 'sep_arcsec',
+        'ks_mag', 'ks_mag_err'
+    ]
 
 
-    save_results_to_csv(results, output_file)
-    save_results_to_csv(results_new, output_file_new)
+    save_results_to_csv(results, output_file, header=header_old)
+    save_results_to_csv(results_new, output_file_new, header=header_new) 
 
     visualize_results(bh_ra_list, bh_dec_list)
 
