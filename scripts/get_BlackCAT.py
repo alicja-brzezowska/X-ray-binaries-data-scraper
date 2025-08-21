@@ -10,16 +10,17 @@ if __name__ == "__main__":
     page = requests.get(url)
     soup = BeautifulSoup(page.text, 'html.parser')
 
-    # Extracting confirmed black holes: in bold
+    # Extracting confirmed black holes: written in bold on the main page
     black_holes = []
     data = soup.find_all('tr', style="font-weight:bold")
 
-    for row in data:
+    for row in data: # Extracting ra and dec for each confirmed black hole
         row_data = row.find_all('td')
         name = " ".join(row_data[1].text.replace("\n", " ").split())
         ra = row_data[2].text.strip()
         dec = row_data[3].text.strip()
 
+        # Extracting hyperlink to detailed page
         link_tag = row_data[1].find('a')
         relative_link = link_tag['href']
         link = f"https://www.astro.puc.cl/BlackCAT/{relative_link}"
@@ -29,6 +30,7 @@ if __name__ == "__main__":
         detail_page = requests.get(link)
         detail_soup = BeautifulSoup(detail_page.text, 'html.parser')
 
+        # Extracting K band magnitude from the detailed page
         table = detail_soup.find('table', {'id': 'magnitudes'})
         if table:
             td_elements = table.find_all('td')
@@ -48,7 +50,8 @@ if __name__ == "__main__":
 
     pprint(black_holes)
 
-    with open('../results/black_holes.csv', 'w', newline='') as f:
+    # Saving results to CSV file for further analysis 
+    with open('results/black_holes.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['name', 'ra', 'dec', 'brightness_quiescent'])
         writer.writeheader()
         writer.writerows(black_holes)

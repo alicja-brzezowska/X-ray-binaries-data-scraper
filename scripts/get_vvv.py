@@ -7,20 +7,14 @@ from pprint import pprint
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 
-
-def read_csv(file_name):
-    with open(file_name, 'r') as f:
-        csv_reader = csv.reader(f)
-        header = next(csv_reader)
-        black_holes = list(csv_reader)
-    return black_holes
+from functions import read_csv, save_results_to_csv, rect_to_radec
 
 
-def query_vvv_catalog(ra, dec, radius_arcsec = 30.0):
-    """Query the VVV catalog for K band data around a given RA and Dec."""
-    radius_deg = radius_arcsec/ 3600
+def query_VVV(ra, dec, radius_arcsec = 30.0):
+    """Query the VVV catalog for K band data around a given RA and DEC."""
+    radius_deg = radius_arcsec/ 3600 * u.deg
     query = (
-        "SELECT RA2000, DEC2000, KS_1APERMAG3, KS_1APERMAG3ERR, "
+        "SELECT RA2000, DEC2000, KS_1APERMAG3, KS_1APERMAG3ERR, "  # Old catalog has two K band brightness measurementse
         "KS_2APERMAG3, KS_2APERMAG3ERR "
         "FROM VVV_bandMergedSourceCat_V3 "
         f"WHERE CONTAINS(POINT('ICRS', RA2000, DEC2000), "
@@ -31,11 +25,12 @@ def query_vvv_catalog(ra, dec, radius_arcsec = 30.0):
     result = json.loads(response.content)
     return result.get('data', [])
 
-def query_vvv_new_catalog(ra, dec, radius_arcsec = 30.0):
+
+def query_VVV_new(ra, dec, radius_arcsec = 30.0):
     """Query the new VVV catalog for K band data around a given RA and Dec."""
     radius_deg = radius_arcsec/ 3600
     query = (
-        "SELECT ra, de, phot_ks_mean_mag, phot_ks_std_mag "
+        "SELECT ra, de, phot_ks_mean_mag, phot_ks_std_mag "    # New catalog has one K band brightness measurement
         "FROM VVVX_VIRAC_V2_SOURCES "
         f"WHERE CONTAINS(POINT('ICRS', ra, de), "
         f"CIRCLE('ICRS', {ra:.6f}, {dec:.6f}, {radius_deg:.6f}))=1"
@@ -47,6 +42,7 @@ def query_vvv_new_catalog(ra, dec, radius_arcsec = 30.0):
 
 
 def find_brightest_vvv(data, bh_coord):
+    """Find the brightest K band source in the queried VVV data."""
     if not data:
         return None
 
@@ -57,20 +53,20 @@ def find_brightest_vvv(data, bh_coord):
     ks2_vals = np.array([row[4] for row in data], dtype=float)
     ks2_errs = np.array([row[5] for row in data], dtype=float)
 
-    # Calculate separations using SkyCoord
+    # Calculate separations 
     src_coords = SkyCoord(ra_vals * u.deg, dec_vals * u.deg, frame='icrs')
     seps = src_coords.separation(bh_coord).arcsec
 
-    # Find the brightest source
+    # Find the brightest sources
     idx1 = int(np.nanargmin(ks1_vals)) if np.any(~np.isnan(ks1_vals)) else None
     idx2 = int(np.nanargmin(ks2_vals)) if np.any(~np.isnan(ks2_vals)) else None
 
     chosen_idx = None
     best_mag = np.nan
 
-    """Determine the index of the brightest star from both sets of measurements
-    if both indices show the same source, take the average of their magnitudes
-    if they are different, choose the one with the lower magnitude (brighter)"""
+    """Determine the index of the brightest star from both sets of measurements.
+    If both indices show the same source, take the average of their magnitudes.
+    If they are different, choose the one with the lower magnitude (brighter)"""
 
     if idx1 is not None and idx2 is not None:
         if idx1 == idx2:
@@ -92,8 +88,8 @@ def find_brightest_vvv(data, bh_coord):
 
     if chosen_idx is not None:
         return {
-            "vvv_ra": ra_vals[chosen_idx],
-            "vvv_dec": dec_vals[chosen_idx],
+            "star_ra_deg": ra_vals[chosen_idx],
+            "star_dec_deg": dec_vals[chosen_idx],
             "sep_arcsec": seps[chosen_idx],
             "ks1": ks1_vals[chosen_idx],
             "ks1err": ks1_errs[chosen_idx],
@@ -104,6 +100,7 @@ def find_brightest_vvv(data, bh_coord):
     return None
 
 def find_brightest_vvv_new(data, bh_coord):
+    """Find the brightest K band source in the queried VVV data (new catalog)."""
     if not data:
         return None
 
@@ -112,30 +109,22 @@ def find_brightest_vvv_new(data, bh_coord):
     ks_vals = np.array([row[2] for row in data], dtype=float)
     ks_errs = np.array([row[3] for row in data], dtype=float)
 
-    # Calculate separations using SkyCoord
+    # Calculate separations 
     src_coords = SkyCoord(ra_vals * u.deg, dec_vals * u.deg, frame='icrs')
     seps = src_coords.separation(bh_coord).arcsec
 
-    # In the new catalog, only one K band magnitude 
+    # Find the brightest source
     idx = int(np.nanargmin(ks_vals)) if np.any(~np.isnan(ks_vals)) else None
 
     if idx is not None:
         return {
-            "vvv_ra": ra_vals[idx],
-            "vvv_dec": dec_vals[idx],
+            "star_ra_deg": ra_vals[idx],
+            "star_dec_deg": dec_vals[idx],
             "sep_arcsec": seps[idx],
             "ks": ks_vals[idx],
             "kserr": ks_errs[idx]
         }
     return None
-
-
-def rect_to_radec(lmin, lmax, bmin, bmax, n=50):
-    """Convert rectangular coordinates (l,b) to RA, Dec in degrees."""
-    l_vals = [lmin] * n + list(np.linspace(lmin, lmax, n)) + [lmax] * n + list(np.linspace(lmax, lmin, n))
-    b_vals = list(np.linspace(bmin, bmax, n)) + [bmax] * n + list(np.linspace(bmax, bmin, n)) + [bmin] * n
-    gal = SkyCoord(l=l_vals*u.deg, b=b_vals*u.deg, frame="galactic")
-    return gal.icrs.ra.deg, gal.icrs.dec.deg
 
 
 def visualize_results(bh_ra, bh_dec):
@@ -156,64 +145,60 @@ def visualize_results(bh_ra, bh_dec):
     return plt.show()
 
 
-def save_results_to_csv(results, output_file, header=None):
-    with open(output_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        writer.writerows(results)
-    print(f"Saved results to {output_file}")
-
-
 def main():
     input_file = 'results/black_holes.csv'
     output_file = 'results/black_holes_with_vvv.csv'
     output_file_new = 'results/black_holes_with_vvv_new.csv'
     radius_arcsec = 30.0
 
+
+    # Extract RA and DEC data from the black_holes file 
     black_holes = read_csv(input_file)
     
+
     results = []  
     results_new = []
-    bh_ra_list, bh_dec_list = [], []
+    bh_ra_list, bh_dec_list = [], [] #for plotting purposes
 
     for bh in black_holes:
         name = bh[0]
-        ra_str = bh[1]
-        dec_str = bh[2]
+        bh_ra = bh[1]
+        bh_dec = bh[2]
 
-        bh_coord = SkyCoord(ra_str, dec_str, unit=(u.hourangle, u.deg), frame='icrs')
-        ra = bh_coord.ra.deg
-        dec = bh_coord.dec.deg
+        # Convert the coordinates to degrees for queries
+        bh_coord = SkyCoord(bh_ra, bh_dec, unit=(u.hourangle, u.deg), frame='icrs')
+        bh_ra_deg = bh_coord.ra.deg
+        bh_dec_deg = bh_coord.dec.deg
 
-        bh_ra_list.append(ra)
-        bh_dec_list.append(dec)
+        bh_ra_list.append(bh_ra_deg)
+        bh_dec_list.append(bh_dec_deg)
 
-        # Perform the search for the old and new VVV catalogs
-        data = query_vvv_catalog(ra, dec, radius_arcsec)
+        # Perform the search for old and new VVV catalogs
+        data = query_VVV(bh_ra_deg, bh_dec_deg, radius_arcsec)
         if not data:
-            print(f"No VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
+            print(f"No VVV data found for {name} at RA: {bh_ra}, Dec: {bh_dec}")
             continue
 
  
         brightest = find_brightest_vvv(data, bh_coord)
 
         if brightest:
-            k = SkyCoord(brightest["vvv_ra"] * u.deg, brightest["vvv_dec"] * u.deg, frame='icrs')
-            vvv_ra_hms = k.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
-            vvv_dec_dms = k.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
+            k = SkyCoord(brightest["star_ra_deg"] * u.deg, brightest["star_dec_deg"] * u.deg, frame='icrs')
+            star_ra = k.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
+            star_dec = k.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
             results.append([
-                name, ra_str, dec_str,
-                vvv_ra_hms, vvv_dec_dms,
+                name, bh_ra, bh_dec,
+                star_ra, star_dec,
                 brightest["sep_arcsec"],
                 brightest["ks1"], brightest["ks1err"], brightest["ks2"], brightest["ks2err"],
                 brightest["best_mag"]
             ])
 
                 
-        data_new = query_vvv_new_catalog(ra, dec, radius_arcsec)
+        data_new = query_VVV_new(bh_ra_deg, bh_dec_deg, radius_arcsec)
 
         if not data_new:
-            print(f"No new VVV data found for {name} at RA: {ra_str}, Dec: {dec_str}")
+            print(f"No new VVV data found for {name} at RA: {bh_ra}, Dec: {bh_dec}")
             continue
         
         brightest_new = find_brightest_vvv_new(data_new, bh_coord)
@@ -223,24 +208,25 @@ def main():
             vvv2_ra_hms = k2.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
             vvv2_dec_dms = k2.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
             results_new.append([
-                name, ra_str, dec_str,
+                name, bh_ra, bh_dec,
                 vvv2_ra_hms, vvv2_dec_dms,
                 brightest_new["sep_arcsec"],
                 brightest_new["ks"], brightest_new["kserr"]
             ])
     
+    # Header names for both output files
     header_old = [
         'name', 'bh_ra', 'bh_dec',
-        'vvv_ra', 'vvv_dec', 'sep_arcsec',
+        'star_ra', 'star_dec', 'sep_arcsec',
         'ks_1_mag', 'ks_1_mag_err', 'ks_2_mag', 'ks_2_mag_err',
         'best_mag_for_ranking'
     ]
+
     header_new = [
         'name', 'bh_ra', 'bh_dec',
-        'vvv_ra', 'vvv_dec', 'sep_arcsec',
+        'star_ra', 'star_dec', 'sep_arcsec',
         'ks_mag', 'ks_mag_err'
     ]
-
 
     save_results_to_csv(results, output_file, header=header_old)
     save_results_to_csv(results_new, output_file_new, header=header_new) 
@@ -248,6 +234,5 @@ def main():
     visualize_results(bh_ra_list, bh_dec_list)
 
     
-
 if __name__ == "__main__":
     main()
