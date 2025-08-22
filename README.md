@@ -1,2 +1,2 @@
-Python Script that gets lists of objects around a given coordinate (RA, DEC), and finds the brightest objects in the K band (for 2mass, VVV, and UKIDSS GPS) or in the rp filter (Gaia). 
+Python Script that gets lists of objects around a given coordinate (RA, DEC), and finds the brightest stars in the K band (for 2mass, VVV, and UKIDSS GPS) or in the rp filter (Gaia). 
 Performs this operation for a list of objects with the attributes (name, ra, dec). By default, this is the black_holes file: the list of dynamically confirmed black holes from https://www.astro.puc.cl/BlackCAT/transients.php. 
