@@ -75,7 +75,7 @@ def visualize_results(bh_ra, bh_dec):
     plt.gca().invert_xaxis()  
     plt.xlabel("RA (deg)")
     plt.ylabel("Dec (deg)")
-    plt.title("VVV Survey Range and X-ray Binary Locations")
+    plt.title("UKIDSS GPS Survey Range and X-ray Binary Locations")
     plt.legend()
     return plt.show()
 
