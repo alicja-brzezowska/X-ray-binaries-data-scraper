@@ -112,11 +112,11 @@ def main():
                 'bh_name': name,
                 'bh_ra': bh_ra,
                 'bh_dec': bh_dec,
-                'star_ra': "-",
-                'star_dec': "-",
-                'sep_arcsec': "-",
-                'k_mag': "-",
-                'k_mag_err': "-"
+                'star_ra': "",
+                'star_dec': "",
+                'sep_arcsec': "",
+                'k_mag': "",
+                'k_mag_err': ""
             })
             continue
 

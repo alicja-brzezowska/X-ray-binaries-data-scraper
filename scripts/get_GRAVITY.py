@@ -103,6 +103,7 @@ def main():
     ]
 
     save_results_to_csv(results, output_file, output_header)
+    print(f"Saved results to {output_file}")
 
 
 if __name__ == "__main__":

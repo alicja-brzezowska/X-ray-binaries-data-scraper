@@ -12,7 +12,7 @@ from functions import read_csv, save_results_to_csv, rect_to_radec
 
 def query_VVV(ra, dec, radius_arcsec = 30.0):
     """Query the VVV catalog for K band data around a given RA and DEC."""
-    radius_deg = radius_arcsec/ 3600 * u.deg
+    radius_deg = radius_arcsec/ 3600 
     query = (
         "SELECT RA2000, DEC2000, KS_1APERMAG3, KS_1APERMAG3ERR, "  # Old catalog has two K band brightness measurementse
         "KS_2APERMAG3, KS_2APERMAG3ERR "
@@ -177,9 +177,29 @@ def main():
         data = query_VVV(bh_ra_deg, bh_dec_deg, radius_arcsec)
         if not data:
             print(f"No VVV data found for {name} at RA: {bh_ra}, Dec: {bh_dec}")
-            continue
+            results.append([
+                name, bh_ra, bh_dec,
+                "", "", "", "", "", "", "", ""
+        ])
+        else:
+            brightest = find_brightest_vvv(data, bh_coord)
+            if brightest:
+                k = SkyCoord(brightest["star_ra_deg"] * u.deg, brightest["star_dec_deg"] * u.deg, frame='icrs')
+                star_ra = k.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
+                star_dec = k.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
+                results.append([
+                    name, bh_ra, bh_dec,
+                    star_ra, star_dec,
+                    brightest["sep_arcsec"],
+                    brightest["ks1"], brightest["ks1err"], brightest["ks2"], brightest["ks2err"],
+                    brightest["best_mag"]
+                ])
+            else:
+                results.append([
+                    name, bh_ra, bh_dec,
+                    "", "", "", "", "", "", "", ""
+                ])
 
- 
         brightest = find_brightest_vvv(data, bh_coord)
 
         if brightest:
@@ -199,20 +219,29 @@ def main():
 
         if not data_new:
             print(f"No new VVV data found for {name} at RA: {bh_ra}, Dec: {bh_dec}")
-            continue
-        
-        brightest_new = find_brightest_vvv_new(data_new, bh_coord)
-
-        if brightest_new:
-            k2 = SkyCoord(brightest_new["vvv_ra"] * u.deg, brightest_new["vvv_dec"] * u.deg, frame='icrs')
-            vvv2_ra_hms = k2.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
-            vvv2_dec_dms = k2.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
             results_new.append([
                 name, bh_ra, bh_dec,
-                vvv2_ra_hms, vvv2_dec_dms,
-                brightest_new["sep_arcsec"],
-                brightest_new["ks"], brightest_new["kserr"]
-            ])
+                "", "", "", "", ""
+         ])
+        else:
+            brightest_new = find_brightest_vvv_new(data_new, bh_coord)
+            if brightest_new:
+                k2 = SkyCoord(brightest_new["star_ra_deg"] * u.deg, brightest_new["star_dec_deg"] * u.deg, frame='icrs')
+                vvv2_ra_hms = k2.ra.to_string(unit=u.hour, sep=':', precision=2, pad=True)
+                vvv2_dec_dms = k2.dec.to_string(unit=u.deg,  sep=':', precision=2, pad=True, alwayssign=True)
+                results_new.append([
+                    name, bh_ra, bh_dec,
+                    vvv2_ra_hms, vvv2_dec_dms,
+                    brightest_new["sep_arcsec"],
+                    brightest_new["ks"], brightest_new["kserr"]
+                ])
+            else:
+                results_new.append([
+                    name, bh_ra, bh_dec,
+                    "", "", "", "", ""
+                ])
+
+
     
     # Header names for both output files
     header_old = [

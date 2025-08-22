@@ -101,7 +101,7 @@ def process_input_file(input_file, radius_arcsec=30.0):
 
 
 def main():
-    input_file = 'results/black_holes'
+    input_file = 'results/black_holes.csv'
     output_file = 'results/black_holes_with_2mass.csv'
 
     black_holes = read_csv(input_file)
