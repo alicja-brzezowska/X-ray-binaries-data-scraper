@@ -2,6 +2,7 @@ import csv
 from astropy.coordinates import SkyCoord
 import astropy.units as u
 import numpy as np
+import os
 
 
 def read_csv(file_name):
@@ -12,13 +13,14 @@ def read_csv(file_name):
         return list(csv_reader)
 
 
-def save_results_to_csv(results, output_file, header = None):
-    """Save data in a csv file"""
-    with open(output_file, 'w', newline='') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-        writer.writerows(results)
-    print(f"Saved results to {output_file}")   
+def save_results_to_csv(rows, output_file, header):
+    "Save data in a csv file"
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=header)
+        w.writeheader()
+        for r in rows:
+            w.writerow({k: ("" if r.get(k) is None else r.get(k)) for k in header})
 
 
 def rect_to_radec(lmin, lmax, bmin, bmax, n=50):
