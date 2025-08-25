@@ -11,6 +11,7 @@ def read_csv(file_name):
         csv_reader = csv.reader(f)
         header = next(csv_reader)
         return list(csv_reader)
+    
 
 def save_results_to_csv(rows, output_file, header):
     """Save rows to CSV. Works for both lists and dictonaries."""
